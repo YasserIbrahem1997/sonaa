@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../data/model/ad_model.dart';
 import '../../../data/repositories/home_repository.dart';
 import '../../../view_model/auth_cubit/auth_cubit.dart';
 import '../../../view_model/auth_cubit/auth_state.dart';
@@ -230,6 +231,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ad.images.isNotEmpty ? ad.images.first : '',
                                         ad.title,
                                         'Featured',
+                                          ad
+
                                       );
                                     },
                                   ),
@@ -358,11 +361,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFeaturedCard(String imageUrl, String title, String badge) {
+  Widget _buildFeaturedCard(String imageUrl, String title, String badge, AdModel ad ) {
     return GestureDetector(
       onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Viewing: $title')),
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdDetailsScreen(ad: ad,),
+          ),
         );
       },
       child: Container(
@@ -506,12 +512,12 @@ class _HomeScreenState extends State<HomeScreen> {
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: () {
-          // Navigator.push(
-          //   context,
-          //   MaterialPageRoute(
-          //     builder: (_) => AdDetailsScreen(adId: ad.id),
-          //   ),
-          // );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AdDetailsScreen(ad: ad,),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(16),
         child: Container(
@@ -573,7 +579,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      ad.price != null ? '\$${ad.price}' : 'Price not set',
+                      ad.price != null ? '\${ad.price}' : 'Price not set',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
