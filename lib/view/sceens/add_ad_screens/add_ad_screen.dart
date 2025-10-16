@@ -49,6 +49,7 @@ class AddAdScreen extends StatelessWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Ad published successfully')),
                 );
+                Navigator.canPop(context);
               }
             },
             builder: (context, state) {

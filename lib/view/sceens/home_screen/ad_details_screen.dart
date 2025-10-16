@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/model/ad_model.dart';
+import '../chat/chat_screen.dart';
 
 class AdDetailsScreen extends StatefulWidget {
   final AdModel ad;
@@ -14,6 +16,44 @@ class AdDetailsScreen extends StatefulWidget {
 class _AdDetailsScreenState extends State<AdDetailsScreen> {
   int _currentImageIndex = 0;
   bool _isFavorite = false;
+  final PageController _pageController = PageController();
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(_onPageChanged);
+
+    // Preload all images when screen initializes
+    _preloadAllImages();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onPageChanged() {
+    setState(() {
+      _currentImageIndex = _pageController.page!.round();
+    });
+  }
+
+  // Preload all images for faster switching
+  void _preloadAllImages() {
+    final images = widget.ad.images.isNotEmpty
+        ? widget.ad.images
+        : ['https://via.placeholder.com/400x300?text=No+Image'];
+
+    for (final imageUrl in images) {
+      try {
+        // Precache image for faster loading
+        precacheImage(NetworkImage(imageUrl), context);
+      } catch (e) {
+        // Ignore precache errors
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +68,6 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
           // Main Content
           CustomScrollView(
             slivers: [
-              // Image Gallery with Header Overlay
               SliverAppBar(
                 expandedHeight: 320,
                 pinned: false,
@@ -69,7 +108,6 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                       child: IconButton(
                         icon: const Icon(Icons.share, color: Colors.black87),
                         onPressed: () {
-                          // Share functionality
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Share functionality - Coming soon')),
                           );
@@ -108,15 +146,20 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // Image
-                      Image.network(
-                        images[_currentImageIndex],
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.grey.shade300,
-                          child: const Icon(Icons.image, size: 80, color: Colors.grey),
-                        ),
+                      // PageView with CachedNetworkImage
+                      PageView.builder(
+                        controller: _pageController,
+                        itemCount: images.length,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentImageIndex = index;
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          return _buildCachedImage(images[index]);
+                        },
                       ),
+
                       // Featured Badge
                       if (ad.featured)
                         Positioned(
@@ -125,7 +168,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.cyan.shade600,
+                              color: Theme.of(context).primaryColor,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
@@ -138,29 +181,40 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                             ),
                           ),
                         ),
+
                       // Image Indicators
                       if (images.length > 1)
                         Positioned(
                           bottom: 16,
-                          right: 16,
-                          child: Row(
-                            children: List.generate(
-                              images.length,
-                                  (index) => GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _currentImageIndex = index;
-                                  });
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.only(left: 4),
-                                  width: index == _currentImageIndex ? 24 : 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: index == _currentImageIndex
-                                        ? Colors.white
-                                        : Colors.white.withOpacity(0.5),
-                                    borderRadius: BorderRadius.circular(4),
+                          right: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                images.length,
+                                    (index) => GestureDetector(
+                                  onTap: () {
+                                    _pageController.animateToPage(
+                                      index,
+                                      duration: const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                                    width: index == _currentImageIndex ? 20 : 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: index == _currentImageIndex
+                                          ? Colors.white
+                                          : Colors.white.withOpacity(0.6),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -171,8 +225,8 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                   ),
                 ),
               ),
-      
-              // Content
+
+              // باقي المحتوى
               SliverToBoxAdapter(
                 child: Container(
                   color: Colors.white,
@@ -199,7 +253,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                               style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.cyan.shade600,
+                                color:Theme.of(context).primaryColor,
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -223,9 +277,9 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                           ],
                         ),
                       ),
-      
+
                       const Divider(height: 1),
-      
+
                       // Description
                       Padding(
                         padding: const EdgeInsets.all(24),
@@ -252,9 +306,9 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                           ],
                         ),
                       ),
-      
+
                       const Divider(height: 1),
-      
+
                       // Specifications
                       Padding(
                         padding: const EdgeInsets.all(24),
@@ -287,9 +341,9 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                           ],
                         ),
                       ),
-      
+
                       const Divider(height: 1),
-      
+
                       // Seller Info
                       Padding(
                         padding: const EdgeInsets.all(24),
@@ -315,7 +369,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      Icon(Icons.phone, color: Colors.cyan.shade600),
+                                      Icon(Icons.phone, color:Theme.of(context).primaryColor),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Text(
@@ -329,7 +383,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                                     const SizedBox(height: 12),
                                     Row(
                                       children: [
-                                        Icon(Icons.email, color: Colors.cyan.shade600),
+                                        Icon(Icons.email, color: Theme.of(context).primaryColor),
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
@@ -346,21 +400,20 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                           ],
                         ),
                       ),
-      
-                      const SizedBox(height: 150), // Space for bottom bar
+
+                      const SizedBox(height: 150),
                     ],
                   ),
                 ),
               ),
             ],
           ),
-      
+
           // Bottom Action Bar
           Positioned(
             left: 0,
             right: 0,
             bottom: 2,
-
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -379,12 +432,12 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                     // Call Button
                     Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.cyan.shade600),
+                        border: Border.all(color:Theme.of(context).primaryColor),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        icon: Icon(Icons.phone, color: Colors.cyan.shade600),
-                        onPressed: () => _makePhoneCall(ad.phone,mounted,context),
+                        icon: Icon(Icons.phone, color: Theme.of(context).primaryColor),
+                        onPressed: () => _makePhoneCall(ad.phone, mounted, context),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -392,15 +445,14 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Chat feature - Coming soon')),
-                          );
+                        Navigator.push(context, PageRouteBuilder(pageBuilder: (BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
+                          return ChatScreen(ad: ad,);
+                        }));
                         },
                         icon: const Icon(Icons.chat_bubble_outline),
                         label: const Text('Chat with Seller'),
-
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.cyan.shade600,
+                          backgroundColor: Theme.of(context).primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -418,7 +470,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                       ),
                       child: IconButton(
                         icon: const Icon(Icons.chat, color: Colors.green),
-                        onPressed: () => _openWhatsApp(ad.phone,mounted,context),
+                        onPressed: () => _openWhatsApp(ad.phone, mounted, context),
                       ),
                     ),
                   ],
@@ -431,84 +483,117 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
     );
   }
 
-}
-
-Widget _buildSpecItem(String label, String value) {
-  return Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.grey.shade50,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
+  // دالة محسنة لتحميل الصور مع CachedNetworkImage
+// استبدل دالة _buildCachedImage بهذه الدالة البسيطة
+  Widget _buildCachedImage(String imageUrl) {
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey.shade300,
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+              strokeWidth: 2.0,
+            ),
           ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.grey.shade300,
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported_outlined, size: 60, color: Colors.grey),
+            SizedBox(height: 8),
+            Text(
+              'Failed to load image',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    ),
-  );
-}
-
-String _getTimeAgo(DateTime? dateTime) {
-  if (dateTime == null) return 'Recently';
-
-  final difference = DateTime.now().difference(dateTime);
-
-  if (difference.inDays > 30) {
-    return '${(difference.inDays / 30).floor()} months ago';
-  } else if (difference.inDays > 0) {
-    return '${difference.inDays} days ago';
-  } else if (difference.inHours > 0) {
-    return '${difference.inHours} hours ago';
-  } else if (difference.inMinutes > 0) {
-    return '${difference.inMinutes} minutes ago';
-  } else {
-    return 'Just now';
+      ),
+    );
   }
-}
+  Widget _buildSpecItem(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
 
-Future<void> _makePhoneCall(String phoneNumber,mounted,BuildContext context) async {
-  final uri = Uri(scheme: 'tel', path: phoneNumber);
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri);
-  } else {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not launch phone app')),
-      );
+  String _getTimeAgo(DateTime? dateTime) {
+    if (dateTime == null) return 'Recently';
+    final difference = DateTime.now().difference(dateTime);
+    if (difference.inDays > 30) {
+      return '${(difference.inDays / 30).floor()} months ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minutes ago';
+    } else {
+      return 'Just now';
     }
   }
-}
 
-Future<void> _openWhatsApp(String phoneNumber,mounted,BuildContext context) async {
-  final phone = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
-  final uri = Uri.parse('https://wa.me/$phone');
+  Future<void> _makePhoneCall(String phoneNumber, bool mounted, BuildContext context) async {
+    final uri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not launch phone app')),
+        );
+      }
+    }
+  }
 
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  } else {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open WhatsApp')),
-      );
+  Future<void> _openWhatsApp(String phoneNumber, bool mounted, BuildContext context) async {
+    final phone = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+    final uri = Uri.parse('https://wa.me/$phone');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp')),
+        );
+      }
     }
   }
 }

@@ -10,9 +10,15 @@ class AdModel {
   final String location;
   final String phone;
   final String? email;
+  final String userId; // ✅ أضف هذا الحقل
+
   final bool featured;
   final List<String> images;
   final DateTime? createdAt;
+  final String? userName; // ✅ أضف اسم المستخدم
+  final bool isFavorited; // ✅ إضافة حقل الإعجاب
+
+
 
   AdModel({
     required this.id,
@@ -24,9 +30,15 @@ class AdModel {
     required this.location,
     required this.phone,
     this.email,
+    required this.userId, // ✅ إضافة
+
     this.featured = false,
     this.images = const [],
     this.createdAt,
+    this.userName, // ✅ إضافة
+    this.isFavorited = false, // ✅ قيمة افتراضية
+
+
   });
 
   // ✅ تحويل من Map إلى Object
@@ -57,11 +69,17 @@ class AdModel {
       location: map['location'] ?? '',
       phone: map['phone'] ?? '',
       email: map['email'],
+      userId: map['user_id'] ?? '', // ✅ إضافة
+
       featured: map['featured'] ?? map['is_featured'] ?? false,
       images: imagesList,
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'])
           : null,
+      userName: map['user_name'] ?? map['profiles']?['username'], // ✅ إضافة
+      isFavorited: map['is_favorited'] ?? map['favorites'] != null, // ✅ من الجدول الرئيسي أو الجدول المنفصل
+
+
     );
   }
   // ✅ تحويل من Object إلى Map
@@ -76,8 +94,34 @@ class AdModel {
       'location': location,
       'phone': phone,
       'email': email,
+      'user_id': userId, // ✅ إضافة
       'featured': featured,
       'images': images,
+      'is_favorited': isFavorited,
+
     };
+  }
+
+  // ✅ دالة لنسخ الـ AdModel مع تحديث حالة الإعجاب
+  AdModel copyWith({
+    bool? isFavorited,
+  }) {
+    return AdModel(
+      id: id,
+      title: title,
+      description: description,
+      price: price,
+      condition: condition,
+      location: location,
+      images: images,
+      phone: phone,
+      email: email,
+      userId: userId,
+      featured: featured,
+      createdAt: createdAt,
+      category: category,
+      userName: userName,
+      isFavorited: isFavorited ?? this.isFavorited,
+    );
   }
 }

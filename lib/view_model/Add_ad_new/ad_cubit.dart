@@ -112,6 +112,7 @@ class AddAdViewModel extends Cubit<AddAdState> {
       // ✅ لو في بيانات مستخدم من Supabase Auth
       final email = user.email ?? state.email;
       final phone = user.userMetadata?['phone_number'] ?? "Not Found Number";
+      final full_name = user.userMetadata?['full_name'] ?? "Not Found full name";
 
       if ((email == null || email.isEmpty) && (phone == null || phone.isEmpty)) {
         throw Exception('Missing contact info (email or phone)');
@@ -133,6 +134,8 @@ class AddAdViewModel extends Cubit<AddAdState> {
         email: email,
         featured: state.featured,
         images: imageUrls,
+        userId: user.id,
+        userName: full_name,
       );
 
       await repo.createAd(ad.toMap());

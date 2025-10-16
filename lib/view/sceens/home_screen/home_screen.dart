@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../../../data/model/ad_model.dart';
 import '../../../data/repositories/home_repository.dart';
 import '../../../view_model/auth_cubit/auth_cubit.dart';
 import '../../../view_model/auth_cubit/auth_state.dart';
+import '../../../view_model/favorites_cuibt/favorites_cubit.dart';
 import '../../../view_model/home_cubit/home_cubit.dart';
 import '../../../view_model/home_cubit/home_state.dart';
+import '../../widgets/home_widget/FavoriteButton.dart';
 import '../add_ad_screens/add_ad_screen.dart';
 import 'ad_details_screen.dart';
 
@@ -33,22 +37,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
     switch (index) {
       case 0:
-      // Home - Already here
         break;
       case 1:
-      // Search page
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Search page - Coming soon')),
         );
         break;
       case 2:
-      // My Ads page
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('My Ads page - Coming soon')),
         );
         break;
       case 3:
-      // Alerts page
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Alerts page - Coming soon')),
         );
@@ -80,6 +80,9 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
             builder: (context, homeState) {
+              final SupabaseClient client = Supabase.instance.client;
+
+              final user = client.auth.currentUser;
               return Scaffold(
                 backgroundColor: Colors.grey.shade50,
                 body: SafeArea(
@@ -91,12 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         SliverToBoxAdapter(
                           child: Container(
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.cyan.shade600,
-                                  Colors.cyan.shade700,
-                                ],
-                              ),
+                             color: Theme.of(context).primaryColor,
                               borderRadius: const BorderRadius.only(
                                 bottomLeft: Radius.circular(30),
                                 bottomRight: Radius.circular(30),
@@ -113,25 +111,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Location',
+                                          'Hello 👋',
                                           style: TextStyle(
                                             color: Colors.cyan.shade100,
-                                            fontSize: 12,
+                                            fontSize: 15,
                                           ),
                                         ),
                                         const SizedBox(height: 4),
-                                        const Row(
-                                          children: [
-                                            Icon(Icons.location_on, color: Colors.white, size: 16),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              'New York, USA',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
+                                        Text(
+                                          user!.userMetadata?['full_name'],
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -183,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
 
-                        // Featured Ads
+                        // Featured Ads with Shimmer
                         SliverToBoxAdapter(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
@@ -209,16 +201,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 homeState.isFeaturedLoading
-                                    ? const Center(child: CircularProgressIndicator())
+                                    ? _buildFeaturedShimmer()
                                     : homeState.featuredAds.isEmpty
-                                    ? Container(
-                                  height: 160,
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    'No featured ads yet',
-                                    style: TextStyle(color: Colors.grey.shade500),
-                                  ),
-                                )
+                                    ? _buildEmptyFeatured()
                                     : SizedBox(
                                   height: 160,
                                   child: ListView.separated(
@@ -227,13 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     separatorBuilder: (_, __) => const SizedBox(width: 16),
                                     itemBuilder: (context, index) {
                                       final ad = homeState.featuredAds[index];
-                                      return _buildFeaturedCard(
-                                        ad.images.isNotEmpty ? ad.images.first : '',
-                                        ad.title,
-                                        'Featured',
-                                          ad
-
-                                      );
+                                      return _buildFeaturedCard(ad);
                                     },
                                   ),
                                 ),
@@ -242,7 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
 
-                        // Categories
+                        // Categories with Shimmer
                         SliverToBoxAdapter(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -255,16 +234,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 homeState.isCategoriesLoading
-                                    ? const Center(child: CircularProgressIndicator())
+                                    ? _buildCategoriesShimmer()
                                     : homeState.categories.isEmpty
-                                    ? Container(
-                                  padding: const EdgeInsets.all(32),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    'No categories available',
-                                    style: TextStyle(color: Colors.grey.shade500),
-                                  ),
-                                )
+                                    ? _buildEmptyCategories()
                                     : GridView.builder(
                                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: 3,
@@ -277,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   itemCount: homeState.categories.length,
                                   itemBuilder: (context, index) {
                                     final category = homeState.categories[index];
-                                    final count = homeState.categoryCounts[category]?.toString() ?? '0';
+                                    final count = homeState.categoryCounts[category]?.toString() ?? '1';
                                     final color = _getCategoryColor(index);
                                     final icon = _getCategoryIcon(category);
 
@@ -285,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       context,
                                       icon,
                                       category,
-                                      count,
+                                      count ,
                                       color,
                                     );
                                   },
@@ -295,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
 
-                        // Recent Ads
+                        // Recent Ads with Shimmer
                         SliverToBoxAdapter(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
@@ -321,16 +293,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 homeState.isLoading
-                                    ? const Center(child: CircularProgressIndicator())
+                                    ? _buildRecentAdsShimmer()
                                     : homeState.recentAds.isEmpty
-                                    ? Container(
-                                  padding: const EdgeInsets.all(32),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    'No ads found',
-                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
-                                  ),
-                                )
+                                    ? _buildEmptyRecentAds()
                                     : ListView.separated(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
@@ -346,7 +311,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
 
-                        // Bottom Padding
                         const SliverToBoxAdapter(child: SizedBox(height: 80)),
                       ],
                     ),
@@ -361,13 +325,161 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFeaturedCard(String imageUrl, String title, String badge, AdModel ad ) {
+  // ========== SHIMMER EFFECTS ==========
+
+  Widget _buildFeaturedShimmer() {
+    return SizedBox(
+      height: 160,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: 3,
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          return Shimmer.fromColors(
+            baseColor: Colors.grey.shade300,
+            highlightColor: Colors.grey.shade100,
+            child: Container(
+              width: 280,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCategoriesShimmer() {
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.85,
+      ),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 6,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRecentAdsShimmer() {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 5,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 16,
+                        width: double.infinity,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 14,
+                        width: 100,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 12,
+                        width: 120,
+                        color: Colors.grey.shade300,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ========== EMPTY STATES ==========
+
+  Widget _buildEmptyFeatured() {
+    return Container(
+      height: 160,
+      alignment: Alignment.center,
+      child: Text(
+        'No featured ads yet',
+        style: TextStyle(color: Colors.grey.shade500),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCategories() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      alignment: Alignment.center,
+      child: Text(
+        'No categories available',
+        style: TextStyle(color: Colors.grey.shade500),
+      ),
+    );
+  }
+
+  Widget _buildEmptyRecentAds() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      alignment: Alignment.center,
+      child: Text(
+        'No ads found',
+        style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+      ),
+    );
+  }
+
+  // ========== ACTUAL CONTENT WIDGETS ==========
+
+  Widget _buildFeaturedCard(AdModel ad) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => AdDetailsScreen(ad: ad,),
+            builder: (_) => AdDetailsScreen(ad: ad),
           ),
         );
       },
@@ -388,9 +500,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              imageUrl.isNotEmpty
+              ad.images.isNotEmpty
                   ? Image.network(
-                imageUrl,
+                ad.images.first,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: Colors.grey.shade300,
@@ -420,17 +532,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.cyan.shade600,
+                        color: Theme.of(context).primaryColor,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        badge,
-                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      child: const Text(
+                        'Featured',
+                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      title,
+                      ad.title,
                       style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -506,120 +618,135 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildRecentAdItem(ad) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AdDetailsScreen(ad: ad,),
+  Widget _buildRecentAdItem(AdModel ad) {
+    return BlocBuilder<FavoritesCubit, FavoritesState>(
+      builder: (context, favoritesState) {
+        final isFavorited = favoritesState is FavoritesLoaded &&
+            favoritesState.favoriteIds.contains(ad.id);
+
+        return Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Image
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ad.images.isNotEmpty
-                    ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    ad.images.first,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Icon(
-                      Icons.image_outlined,
-                      color: Colors.grey.shade400,
-                      size: 32,
-                    ),
-                  ),
-                )
-                    : Icon(
-                  Icons.image_outlined,
-                  color: Colors.grey.shade400,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ad.title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+            child: Row(
+              children: [
+                // الجزء الرئيسي للإعلان
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AdDetailsScreen(ad: ad),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      ad.price != null ? '\${ad.price}' : 'Price not set',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.cyan.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
+                    );
+                  },
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width / 1.5,
+                    child: Row(
                       children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 14,
-                          color: Colors.grey.shade500,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            ad.location,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
+                        // Image
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ad.images.isNotEmpty
+                              ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              ad.images.first,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.image_outlined,
+                                color: Colors.grey.shade400,
+                                size: 32,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          )
+                              : Icon(
+                            Icons.image_outlined,
+                            color: Colors.grey.shade400,
+                            size: 32,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Info
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                ad.title,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                ad.price != null ? '\$${ad.price}' : 'Price not set',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.cyan.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on_outlined,
+                                    size: 14,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      ad.location,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              Icon(
-                Icons.favorite_border,
-                color: Colors.grey.shade400,
-                size: 22,
-              ),
-            ],
+
+                // زر الـ Favorite مع Animation
+                FavoriteButton(
+                  adId: ad.id,
+                  isFavorited: isFavorited,
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -668,7 +795,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(
                   icon,
-                  color: isActive ? Colors.cyan.shade600 : Colors.grey.shade400,
+                  color: isActive ? Theme.of(context).primaryColor : Colors.grey.shade400,
                   size: 24,
                 ),
                 const SizedBox(height: 4),
@@ -677,7 +804,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                    color: isActive ? Colors.cyan.shade600 : Colors.grey.shade500,
+                    color: isActive ? Theme.of(context).primaryColor : Colors.grey.shade500,
                   ),
                 ),
               ],
@@ -688,7 +815,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ Helper: اختيار لون للكاتيجوري
+  // Helper: اختيار لون للكاتيجوري
   Color _getCategoryColor(int index) {
     final colors = [
       Colors.blue.shade500,
@@ -705,7 +832,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return colors[index % colors.length];
   }
 
-  // ✅ Helper: اختيار أيقونة للكاتيجوري
+  // Helper: اختيار أيقونة للكاتيجوري
   IconData _getCategoryIcon(String category) {
     final Map<String, IconData> icons = {
       'Cars': Icons.directions_car,

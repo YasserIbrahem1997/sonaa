@@ -5,10 +5,12 @@ import 'package:sonaa/view/sceens/auth/login_screen.dart';
 import 'package:sonaa/view/sceens/home_screen/home_screen.dart';
 import 'package:sonaa/view/sceens/splashscreen.dart';
 import 'package:sonaa/view_model/Add_ad_new/ad_cubit.dart';
+import 'package:sonaa/view_model/favorites_cuibt/favorites_cubit.dart';
 import 'package:sonaa/view_model/home_cubit/home_cubit.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'data/repositories/add_ad_repository.dart';
 import 'data/repositories/auth_repository.dart';
+import 'data/repositories/favorites_repository.dart';
 import 'data/repositories/home_repository.dart';
 import 'view_model/auth_cubit/auth_cubit.dart';
 
@@ -67,8 +69,11 @@ class SonaaApp extends StatelessWidget {
           ), BlocProvider(
           create: (context) => HomeCubit(repository: homeRepository),
           ),
-
-
+    BlocProvider(
+    create: (context) => FavoritesCubit(
+    repository: FavoritesRepository(),
+    )..loadFavorites(),
+    ),
         ],
         child: MaterialApp(
           title: 'SONAA Global Ads',
