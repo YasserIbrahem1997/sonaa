@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sonaa/view/sceens/OnboardingScreen.dart';
 import 'package:sonaa/view/sceens/auth/login_screen.dart';
 import 'package:sonaa/view/sceens/home_screen/home_screen.dart';
+import 'package:sonaa/view/sceens/search_screen/SearchScreen.dart';
 import 'package:sonaa/view/sceens/splashscreen.dart';
 import 'package:sonaa/view_model/Add_ad_new/ad_cubit.dart';
 import 'package:sonaa/view_model/favorites_cuibt/favorites_cubit.dart';
@@ -105,6 +106,8 @@ class SonaaApp extends StatelessWidget {
             '/onboarding': (context) => const OnboardingScreen(),
             '/login': (context) => const LoginScreen(),
             '/home': (context) => const HomeScreen(), // Future screens
+            '/search': (context) => const SearchScreen(),
+
           },
         ),
       ),
